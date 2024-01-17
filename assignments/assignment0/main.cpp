@@ -3,6 +3,7 @@
 #include <ew/shader.h>
 #include <ew/model.h>
 #include <ew/camera.h>
+#include <ew/transform.h>
 
 #include <ew/external/glad.h>
 
@@ -27,6 +28,9 @@ int main() {
 	//Shader and Models
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
+
+	//Model Tranform
+	ew::Transform monkeyTransform;
 
 	//Camera
 	ew::Camera camera;
@@ -55,6 +59,9 @@ int main() {
 		shader.use();
 		shader.setMat4("_Model", glm::mat4(1.0f));
 		shader.setMat4("_ViewProjection",camera.projectionMatrix() * camera.viewMatrix());
+		
+		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();
 
 		drawUI();
