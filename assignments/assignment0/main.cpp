@@ -72,6 +72,7 @@ int main() {
 
 		shader.use();
 		shader.setInt("_MainTex", 0);
+		shader.setVec3("_EyePos", camera.position);
 
 		shader.setMat4("_Model", glm::mat4(1.0f));
 		shader.setMat4("_ViewProjection",camera.projectionMatrix() * camera.viewMatrix());
