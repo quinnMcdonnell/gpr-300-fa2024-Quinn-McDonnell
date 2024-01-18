@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <math.h>
+
+#include <ew/external/glad.h>
+
 #include <ew/shader.h>
 #include <ew/model.h>
 #include <ew/camera.h>
 #include <ew/transform.h>
-
-#include <ew/external/glad.h>
+#include <ew/cameraController.h>
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -15,10 +17,15 @@
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
+void resetCamera();
 
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
+
+ew::Camera camera;
+ew::CameraController cameraController;
+
 float prevFrameTime;
 float deltaTime;
 
@@ -32,8 +39,7 @@ int main() {
 	//Model Tranform
 	ew::Transform monkeyTransform;
 
-	//Camera
-	ew::Camera camera;
+	//Camera and its Controller
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
 	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);
 	camera.aspectRatio = (float)screenWidth / screenHeight;
@@ -56,6 +62,8 @@ int main() {
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		cameraController.move(window, &camera, deltaTime);
+
 		shader.use();
 		shader.setMat4("_Model", glm::mat4(1.0f));
 		shader.setMat4("_ViewProjection",camera.projectionMatrix() * camera.viewMatrix());
@@ -71,18 +79,29 @@ int main() {
 	printf("Shutting down...");
 }
 
+void resetCamera()
+{
+	camera.position = glm::vec3(0, 0, 5.0f);
+	camera.target = glm::vec3(0);
+	cameraController.yaw = cameraController.pitch = 0;
+}
+
 void drawUI() {
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
-	ImGui::Text("Add Controls Here!");
+	if (ImGui::Button("Reset Camera"))
+	{
+		resetCamera();
+	}
 	ImGui::End();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
+
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
