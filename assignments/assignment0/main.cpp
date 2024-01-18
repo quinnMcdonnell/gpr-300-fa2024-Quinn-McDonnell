@@ -8,6 +8,7 @@
 #include <ew/camera.h>
 #include <ew/transform.h>
 #include <ew/cameraController.h>
+#include <ew/texture.h>
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -35,6 +36,7 @@ int main() {
 	//Shader and Models
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
+	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
 	//Model Tranform
 	ew::Transform monkeyTransform;
@@ -64,7 +66,13 @@ int main() {
 
 		cameraController.move(window, &camera, deltaTime);
 
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, brickTexture);
+		glBindTextureUnit(0, brickTexture);
+
 		shader.use();
+		shader.setInt("_MainTex", 0);
+
 		shader.setMat4("_Model", glm::mat4(1.0f));
 		shader.setMat4("_ViewProjection",camera.projectionMatrix() * camera.viewMatrix());
 		
