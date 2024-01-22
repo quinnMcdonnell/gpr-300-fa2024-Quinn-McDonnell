@@ -23,12 +23,16 @@ void resetCamera();
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
+bool reset = false;
 
 ew::Camera camera;
 ew::CameraController cameraController;
 
 float prevFrameTime;
 float deltaTime;
+int speed = 1;
+
+glm::vec3 rotation = glm::vec3(0.0, 1.0, 0.0);
 
 struct Material {
 	float Ka = 1.0;
@@ -90,8 +94,14 @@ int main() {
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
 
+		//Reset the model after a change in rotation
+		if (reset)
+		{
+			monkeyTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+			reset = false;
+		}
 		
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime * speed, rotation);
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();
 
@@ -107,6 +117,13 @@ void resetCamera()
 	camera.position = glm::vec3(0, 0, 5.0f);
 	camera.target = glm::vec3(0);
 	cameraController.yaw = cameraController.pitch = 0;
+}
+
+void resetRotation()
+{
+	speed = 1;
+	rotation = glm::vec3(0.0, 1.0, 0.0);
+	reset = true;
 }
 
 void drawUI() {
@@ -126,6 +143,17 @@ void drawUI() {
 		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
+	}
+
+	//Change Direction Stuff
+	if (ImGui::CollapsingHeader("Rotation"))
+	{
+		ImGui::SliderFloat3("Rotation Direction", &rotation.x,-1.0f,1.0f);
+		ImGui::SliderInt("Rotation Speed", &speed,1.0f,20.0f);
+		if (ImGui::Button("Reset Rotation"))
+		{
+			resetRotation();
+		}
 	}
 	ImGui::End();
 
