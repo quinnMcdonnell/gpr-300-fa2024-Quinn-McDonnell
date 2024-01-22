@@ -143,6 +143,14 @@ void drawUI() {
 		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
+
+		if (ImGui::Button("Reset Material"))
+		{
+			material.Ka = 1;
+			material.Kd = 0.5;
+			material.Ks = 0.5;
+			material.Shininess = 128;
+		}
 	}
 
 	//Change Direction Stuff
