@@ -82,6 +82,12 @@ int main() {
 	camera.aspectRatio = (float)screenWidth / screenHeight;
 	camera.fov = 60.0f;
 
+	//State machine
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK); //Back face culling
+	glEnable(GL_DEPTH_TEST); //Depth testing
+
+	//Screen Quad
 	glGenVertexArrays(1, &screenVAO);
 	glGenBuffers(1, &screenVBO);
 
@@ -97,10 +103,7 @@ int main() {
 	glBindVertexArray(0);
 
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK); //Back face culling
-	glEnable(GL_DEPTH_TEST); //Depth testing
-
+	
 	//Create Framebuffer
 	glCreateFramebuffers(1, &fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -108,8 +111,8 @@ int main() {
 	glGenTextures(1, &colorBuffer);
 	glBindTexture(GL_TEXTURE_2D, colorBuffer);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	
-	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
 
@@ -164,23 +167,14 @@ int main() {
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT);
 		
 		postProcessShader.use();
 		glBindVertexArray(screenVAO);
 		glDisable(GL_DEPTH_TEST);
 		glBindTexture(GL_TEXTURE_2D, colorBuffer);
+		
 		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		postProcessShader.setInt("screenTexture", 0);
-
-		//Draw Full Screen Quad
-		glDisable(GL_DEPTH_TEST);
-		glBindVertexArray(screenVAO);
-		glBindTexture(GL_TEXTURE_2D, colorBuffer);
-		
-		
-		
 		
 		drawUI();
 
