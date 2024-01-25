@@ -41,12 +41,35 @@ struct Material {
 	float Shininess = 128;
 }material;
 
+//Frame Buffer 
+unsigned int fbo;
+unsigned int colorBuffer;
+
+
+float quad[] = {
+
+	//Vertices				UV Coords
+
+	//Triangle 1
+	-1.0f, +1.0f, 0.0f,		0.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f,		0.0f, 0.0f,
+	+1.0f, +1.0f, 0.0f,		1.0f, 1.0f,
+
+	//trinagle 2
+	+1.0f, -1.0f, 0.0f,		1.0f, 0.0f,
+	+1.0f, +1.0f, 0.0f,		1.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f,		0.0f, 0.0f,
+};
+
+unsigned int screenVBO;
+unsigned int screenVAO;
 
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 
 	//Shader and Models
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader postProcessShader = ew::Shader("assets/post.vert", "assets/post.frag");
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
@@ -59,11 +82,43 @@ int main() {
 	camera.aspectRatio = (float)screenWidth / screenHeight;
 	camera.fov = 60.0f;
 
+	glGenVertexArrays(1, &screenVAO);
+	glGenBuffers(1, &screenVBO);
+
+	glBindVertexArray(screenVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, screenVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad), &quad, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+	glBindVertexArray(0);
+
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK); //Back face culling
 	glEnable(GL_DEPTH_TEST); //Depth testing
 
+	//Create Framebuffer
+	glCreateFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	glGenTextures(1, &colorBuffer);
+	glBindTexture(GL_TEXTURE_2D, colorBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	
+	
+	
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete \n");
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -71,6 +126,8 @@ int main() {
 		float time = (float)glfwGetTime();
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
+
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 		//RENDER
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
@@ -105,6 +162,26 @@ int main() {
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();
 
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
+		postProcessShader.use();
+		glBindVertexArray(screenVAO);
+		glDisable(GL_DEPTH_TEST);
+		glBindTexture(GL_TEXTURE_2D, colorBuffer);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		postProcessShader.setInt("screenTexture", 0);
+
+		//Draw Full Screen Quad
+		glDisable(GL_DEPTH_TEST);
+		glBindVertexArray(screenVAO);
+		glBindTexture(GL_TEXTURE_2D, colorBuffer);
+		
+		
+		
+		
 		drawUI();
 
 		glfwSwapBuffers(window);
