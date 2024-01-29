@@ -64,12 +64,13 @@ float quad[] = {
 unsigned int screenVBO;
 unsigned int screenVAO;
 
+char* effects[] = { "Normal", "Inverted", };
+
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 
 	//Shader and Models
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
-	ew::Shader postProcessShader = ew::Shader("assets/post.vert", "assets/post.frag");
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
@@ -116,12 +117,19 @@ int main() {
 	
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
 
+	unsigned int rbo;
+	glGenRenderbuffers(1, &rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, screenWidth, screenHeight);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 	{
 		printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete \n");
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -129,6 +137,9 @@ int main() {
 		float time = (float)glfwGetTime();
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
+
+		//post processing FX
+		ew::Shader postProcessShader = ew::Shader("assets/edge.vert", "assets/edge.frag");
 
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
@@ -234,6 +245,7 @@ void drawUI() {
 			resetRotation();
 		}
 	}
+
 	ImGui::End();
 
 	ImGui::Render();
