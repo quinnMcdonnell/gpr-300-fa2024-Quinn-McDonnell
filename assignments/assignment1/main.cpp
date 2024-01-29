@@ -43,6 +43,7 @@ struct Material {
 
 //Frame Buffer 
 unsigned int fbo;
+unsigned int rbo;
 unsigned int colorBuffer;
 
 
@@ -64,6 +65,8 @@ float quad[] = {
 unsigned int screenVBO;
 unsigned int screenVAO;
 
+bool edge = false, inverted = false, box = false, grayscale = false;
+
 char* effects[] = { "Normal", "Inverted", };
 
 int main() {
@@ -71,6 +74,11 @@ int main() {
 
 	//Shader and Models
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader postProcessShader = ew::Shader("assets/post.vert", "assets/post.frag");
+	ew::Shader Inverted = ew::Shader("assets/inverted.vert", "assets/inverted.frag");
+	ew::Shader Grayscale = ew::Shader("assets/grayscale.vert", "assets/grayscale.frag");
+	ew::Shader Box = ew::Shader("assets/box.vert", "assets/box.frag");
+	ew::Shader Edge = ew::Shader("assets/edge.vert", "assets/edge.frag");
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
@@ -105,8 +113,14 @@ int main() {
 
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 	
+	//RBO
+	glGenRenderbuffers(1, &rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, screenWidth, screenHeight);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
 	//Create Framebuffer
-	glCreateFramebuffers(1, &fbo);
+	glGenFramebuffers(1, &fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 	glGenTextures(1, &colorBuffer);
@@ -116,12 +130,6 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
-
-	unsigned int rbo;
-	glGenRenderbuffers(1, &rbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, screenWidth, screenHeight);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
@@ -138,10 +146,8 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
-		//post processing FX
-		ew::Shader postProcessShader = ew::Shader("assets/edge.vert", "assets/edge.frag");
-
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glEnable(GL_DEPTH_TEST);
 
 		//RENDER
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
@@ -180,7 +186,24 @@ int main() {
 		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 		
-		postProcessShader.use();
+
+		if (edge) 
+		{
+			Edge.use();
+		}else if (box)
+		{
+			Box.use();
+		} else if (inverted)
+		{
+			Inverted.use();
+		} else if (grayscale)
+		{
+			Grayscale.use();
+		}
+		else {
+			postProcessShader.use();
+		}
+
 		glBindVertexArray(screenVAO);
 		glDisable(GL_DEPTH_TEST);
 		glBindTexture(GL_TEXTURE_2D, colorBuffer);
@@ -244,6 +267,14 @@ void drawUI() {
 		{
 			resetRotation();
 		}
+	}
+
+	if (ImGui::CollapsingHeader("Post Processing"))
+	{
+		ImGui::Checkbox("Inverted", &inverted);
+		ImGui::Checkbox("Grayscale", &grayscale);
+		ImGui::Checkbox("Box Blur", &box);
+		ImGui::Checkbox("Edge Detect", &edge);
 	}
 
 	ImGui::End();
