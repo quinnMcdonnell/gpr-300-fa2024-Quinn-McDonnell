@@ -5,7 +5,7 @@ out vec4 FragColor;
 
 uniform sampler2D screenTexture;
 
-const float offset = 1.0/300;
+const float offset = 1.0/300.0;
 
 void main()
 {

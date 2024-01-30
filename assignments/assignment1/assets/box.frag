@@ -4,6 +4,7 @@ in vec2 TexCoords;
 out vec4 FragColor;
 
 uniform sampler2D screenTexture;
+uniform float DivideValue;
 
 const float offset = 1.0/300;
 
@@ -16,10 +17,12 @@ void main()
 	vec2(-offset, -offset), vec2(0.0f, -offset), vec2(offset, -offset)
 	);
 
+	float divider = DivideValue;
+
 	float kernel[9] = float[](
-	1.0/9.0, 1.0/9.0, 1.0/9.0,
-	1.0/9.0, 1.0/9.0, 1.0/9.0,
-	1.0/9.0, 1.0/9.0, 1.0/9.0
+	1.0/divider, 1.0/divider, 1.0/divider,
+	1.0/divider, 1.0/divider, 1.0/divider,
+	1.0/divider, 1.0/divider, 1.0/divider
 	);
 	
 	vec3 sampleTex[9];

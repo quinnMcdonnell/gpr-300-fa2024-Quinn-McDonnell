@@ -66,6 +66,7 @@ unsigned int screenVBO;
 unsigned int screenVAO;
 
 bool edge = false, inverted = false, box = false, grayscale = false;
+float blurring = 9.0;
 
 char* effects[] = { "Normal", "Inverted", };
 
@@ -193,6 +194,7 @@ int main() {
 		}else if (box)
 		{
 			Box.use();
+			Box.setFloat("DivideValue", blurring);
 		} else if (inverted)
 		{
 			Inverted.use();
@@ -274,6 +276,7 @@ void drawUI() {
 		ImGui::Checkbox("Inverted", &inverted);
 		ImGui::Checkbox("Grayscale", &grayscale);
 		ImGui::Checkbox("Box Blur", &box);
+		ImGui::SliderFloat("Box Blur Brightness", &blurring, 1, 18);
 		ImGui::Checkbox("Edge Detect", &edge);
 	}
 
