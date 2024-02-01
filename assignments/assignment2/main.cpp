@@ -28,6 +28,21 @@ bool reset = false;
 ew::Camera camera;
 ew::CameraController cameraController;
 
+struct
+{
+	GLuint vao;
+	GLuint vbo;
+	GLuint fbo;
+	GLuint map;
+	
+} shadow;
+
+struct
+{
+	GLuint vao;
+	GLuint vbo;
+} debug;
+
 float prevFrameTime;
 float deltaTime;
 int speed = 1;
@@ -46,6 +61,22 @@ unsigned int fbo;
 unsigned int rbo;
 unsigned int colorBuffer;
 
+auto ambient_color = glm::vec3(0.6f, 0.8f, 0.92f);
+
+static void create_debug_pass(void)
+{
+	float dbg_vertices[] = { 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f };
+	
+	glGenVertexArrays(1, &debug.vao);
+	glGenBuffers(1, &debug.vbo);
+
+	glBindVertexArray(debug.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, debug.vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(dbg_vertices), &dbg_vertices, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+}
 
 float quad[] = {
 
@@ -80,8 +111,14 @@ int main() {
 	ew::Shader Grayscale = ew::Shader("assets/grayscale.vert", "assets/grayscale.frag");
 	ew::Shader Box = ew::Shader("assets/box.vert", "assets/box.frag");
 	ew::Shader Edge = ew::Shader("assets/edge.vert", "assets/edge.frag");
+
+	ew::Shader shadow_shader = ew::Shader("assets/shadow.vert", "assets/shadow.frag");
+	ew::Shader debug_shader = ew::Shader("assets/debug.vert", "assets/debug.frag");
+
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+
+	create_debug_pass();
 
 	//Model Tranform
 	ew::Transform monkeyTransform;
@@ -91,6 +128,43 @@ int main() {
 	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);
 	camera.aspectRatio = (float)screenWidth / screenHeight;
 	camera.fov = 60.0f;
+
+	//DEPTH BUFFER
+	unsigned int depthMapFBO;
+	glGenFramebuffers(1, &depthMapFBO);
+
+	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+
+	unsigned int depthMap;
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	//framebuffer
+	glGenFramebuffers(1, &shadow.fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadow.fbo);
+
+	glGenTextures(1, &shadow.map);
+	glBindTexture(GL_TEXTURE_2D, shadow.map);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, screenWidth, screenHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete \n");
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 
 	//State machine
 	glEnable(GL_CULL_FACE);
@@ -115,30 +189,10 @@ int main() {
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 	
 	//RBO
-	glGenRenderbuffers(1, &rbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, screenWidth, screenHeight);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-	//Create Framebuffer
-	glGenFramebuffers(1, &fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-	glGenTextures(1, &colorBuffer);
-	glBindTexture(GL_TEXTURE_2D, colorBuffer);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
-
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-	{
-		printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete \n");
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
+	//glGenRenderbuffers(1, &rbo);
+	//glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	//glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, screenWidth, screenHeight);
+	//glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -147,15 +201,42 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
-		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-		glEnable(GL_DEPTH_TEST);
+		//Light variables
+		auto light_pos = glm::vec3(0.0f, 10.0f, 0.0f);
+		auto light_view = glm::lookAt(light_pos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		auto light_proj = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.0f, 100.0f);
 
-		//RENDER
-		glClearColor(0.6f,0.8f,0.92f,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//Reset the model after a change in rotation
+		if (reset)
+		{
+			monkeyTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+			reset = false;
+		}
+
+		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime * speed, rotation);
 
 		cameraController.move(window, &camera, deltaTime);
 
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+
+		//RENDER FROM LIGHTS POV
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glEnable(GL_DEPTH_TEST);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		shadow_shader.use();
+		shadow_shader.setMat4("_Model", monkeyTransform.modelMatrix());
+		shadow_shader.setMat4("_ViewProjection", light_view * light_proj);
+		monkeyModel.draw();
+		////////////////////////////
+
+		//glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+		//glClear(GL_COLOR_BUFFER_BIT);
+
+		//RENDER THE SCENE NORMALLY
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, brickTexture);
 		glBindTextureUnit(0, brickTexture);
@@ -164,54 +245,61 @@ int main() {
 		shader.setInt("_MainTex", 0);
 		shader.setVec3("_EyePos", camera.position);
 
-		shader.setMat4("_Model", glm::mat4(1.0f));
-		shader.setMat4("_ViewProjection",camera.projectionMatrix() * camera.viewMatrix());
+		shader.setMat4("_Model", monkeyTransform.modelMatrix());
+		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 
 		shader.setFloat("_Material.Ka", material.Ka);
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
 
-		//Reset the model after a change in rotation
-		if (reset)
-		{
-			monkeyTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-			reset = false;
-		}
-		
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime * speed, rotation);
-		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();
+		//////////////////////////
 
+		// RENDER THE DEBUG QUAD
+		glBindVertexArray(debug.vao);
+		glViewport(0, 0, screenWidth, screenHeight);
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		glClear(GL_DEPTH_BUFFER_BIT);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		debug_shader.use();
+
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
+		////////////////////////////
+
+
+
+
+
+		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+		//glClear(GL_COLOR_BUFFER_BIT);
 		
 
-		if (edge) 
-		{
-			Edge.use();
-		}else if (box)
-		{
-			Box.use();
-			Box.setFloat("DivideValue", blurring);
-		} else if (inverted)
-		{
-			Inverted.use();
-		} else if (grayscale)
-		{
-			Grayscale.use();
-		}
-		else {
-			postProcessShader.use();
-		}
+		//if (edge) 
+		//{
+		//	Edge.use();
+		//}else if (box)
+		//{
+		//	Box.use();
+		//	Box.setFloat("DivideValue", blurring);
+		//} else if (inverted)
+		//{
+		//	Inverted.use();
+		//} else if (grayscale)
+		//{
+		//	Grayscale.use();
+		//}
+		//else {
+		//	postProcessShader.use();
+		//}
 
-		glBindVertexArray(screenVAO);
-		glDisable(GL_DEPTH_TEST);
-		glBindTexture(GL_TEXTURE_2D, colorBuffer);
-		
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		
+		//glBindVertexArray(screenVAO);
+		//glDisable(GL_DEPTH_TEST);
+		//glBindTexture(GL_TEXTURE_2D, colorBuffer);
+		//
+		//glDrawArrays(GL_TRIANGLES, 0, 6);
+		//
 		drawUI();
 
 		glfwSwapBuffers(window);
