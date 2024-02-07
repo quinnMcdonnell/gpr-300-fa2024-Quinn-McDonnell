@@ -258,7 +258,7 @@ int main() {
 
 		// RENDER THE DEBUG QUAD
 		glBindVertexArray(debug.vao);
-		glViewport(0, 0, screenWidth, screenHeight);
+		glViewport(screenWidth-250, screenHeight - 250, 250, 250);
 		debug_shader.use();
 
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
