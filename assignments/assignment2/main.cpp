@@ -29,6 +29,10 @@ bool reset = false;
 ew::Camera camera;
 ew::CameraController cameraController;
 
+glm::vec3 pos = glm::vec3(0.0f, 50.0f, 0.0f);
+glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 up = glm::vec3(0.0f, 0.0f, -1.0f);
+
 struct
 {
 	GLuint fbo;
@@ -101,7 +105,6 @@ static void create_debug_pass(void)
 
 static void create_shadow_pass(void)
 {
-
 	glGenFramebuffers(1, &shadow.fbo);
 
 	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
@@ -180,6 +183,9 @@ int main() {
 
 	//Model Tranform
 	ew::Transform monkeyTransform;
+	ew::Transform planeTransform;
+
+	planeTransform.position = glm::vec3(0.0f, -2.0f, 0.0f);
 
 	//Camera and its Controller
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
@@ -204,10 +210,15 @@ int main() {
 		prevFrameTime = time;
 
 		//Light variables
-		auto light_pos = glm::vec3(0.0f, 50.0f, 0.0f);
-		auto light_view = glm::lookAt(light_pos, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-		auto light_proj = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.0f, 100.0f);
-		
+		float near_plane = 0.0f, far_plane = 100.0f;
+		glm::mat4 lightProjection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, near_plane, far_plane);
+		glm::mat4 lightView = glm::lookAt(
+			pos,
+			target,
+			up
+		);
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
 		cameraController.move(window, &camera, deltaTime);
 
 		// >>> RENDER FROM LIGHTS POV
@@ -227,8 +238,10 @@ int main() {
 		// bind
 		shadow_shader.use();
 		shadow_shader.setMat4("_Model", monkeyTransform.modelMatrix());
-		shadow_shader.setMat4("_ViewProjection", light_view * light_proj);
+		shadow_shader.setMat4("_ViewProjection", lightSpaceMatrix);
 		monkeyModel.draw();
+		/*shadow_shader.setMat4("_Model", planeTransform.modelMatrix());
+		planeMesh.draw();*/
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); //HOW TO UNBIND
 		// <<< RENDER FROM LIGHTS POV
@@ -245,21 +258,33 @@ int main() {
 		glCullFace(GL_BACK); //Back face culling
 		glViewport(0, 0, screenWidth, screenHeight);
 
-		//glActiveTexture(GL_TEXTURE0);
-		//glBindTexture(GL_TEXTURE_2D, brickTexture);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, brickTexture);
 		//glBindTextureUnit(0, brickTexture);
+		
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, shadow.map);
+		//glBindTextureUnit(1, shadow.map);
 
-		model_shader.use();
+		shader.use();
 
-		model_shader.setMat4("_Model", monkeyTransform.modelMatrix());
-		model_shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
-		monkeyModel.draw();
-	/*	shader.setFloat("_Material.Ka", material.Ka);
+		shader.setMat4("_Model", monkeyTransform.modelMatrix());
+		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		shader.setMat4("_LightViewProj", lightView * lightProjection);
+		
+		shader.setFloat("_Material.Ka", material.Ka);
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
-		shader.setFloat("_Material.Shininess", material.Shininess);*/
+		shader.setFloat("_Material.Shininess", material.Shininess);
+		shader.setInt("_MainTex", 0);
+		shader.setInt("_ShadowMap", 1);
 
-		
+		glCheckError();
+
+		monkeyModel.draw();
+
+		shader.setMat4("_Model", planeTransform.modelMatrix());
+		planeMesh.draw();
 		
 		// <<< RENDER THE SCENE NORMALLY
 
@@ -352,6 +377,13 @@ void drawUI() {
 			material.Ks = 0.5;
 			material.Shininess = 128;
 		}
+	}
+
+	if (ImGui::CollapsingHeader("Debug View"))
+	{
+		ImGui::SliderFloat3("Position", &pos.x, -10.0f, 50.0f);
+		ImGui::SliderFloat3("Target", &target.x, -10.0f, 50.0f);
+		ImGui::SliderFloat3("Up", &up.x, -10.0f, 50.0f);
 	}
 
 	//Change Direction Stuff
