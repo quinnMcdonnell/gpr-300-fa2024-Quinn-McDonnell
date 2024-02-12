@@ -240,8 +240,8 @@ int main() {
 		shadow_shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shadow_shader.setMat4("_ViewProjection", lightSpaceMatrix);
 		monkeyModel.draw();
-		/*shadow_shader.setMat4("_Model", planeTransform.modelMatrix());
-		planeMesh.draw();*/
+		shadow_shader.setMat4("_Model", planeTransform.modelMatrix());
+		planeMesh.draw();
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); //HOW TO UNBIND
 		// <<< RENDER FROM LIGHTS POV
@@ -258,12 +258,12 @@ int main() {
 		glCullFace(GL_BACK); //Back face culling
 		glViewport(0, 0, screenWidth, screenHeight);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, brickTexture);
-		//glBindTextureUnit(0, brickTexture);
-		
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, shadow.map);
+		//glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(GL_TEXTURE_2D, brickTexture);
+		////glBindTextureUnit(0, brickTexture);
+		//
+		//glActiveTexture(GL_TEXTURE1);
+		//glBindTexture(GL_TEXTURE_2D, shadow.map);
 		//glBindTextureUnit(1, shadow.map);
 
 		shader.use();
@@ -380,11 +380,18 @@ void drawUI() {
 		}
 	}
 
-	if (ImGui::CollapsingHeader("Debug View"))
+	if (ImGui::CollapsingHeader("Light/Shadow Controller"))
 	{
-		ImGui::SliderFloat3("Position", &pos.x, -10.0f, 50.0f);
-		ImGui::SliderFloat3("Target", &target.x, -10.0f, 50.0f);
-		ImGui::SliderFloat3("Up", &up.x, -10.0f, 50.0f);
+		ImGui::SliderFloat3("Position", &pos.x, -50.0f, 50.0f);
+		ImGui::SliderFloat3("Target", &target.x, -50.0f, 50.0f);
+		ImGui::SliderFloat3("Up", &up.x, -50.0f, 50.0f);
+
+		if (ImGui::Button("Reset Light"))
+		{
+			pos = glm::vec3(0.0f, 50.0f, 0.0f);
+			target = glm::vec3(0.0f, 0.0f, 0.0f);
+			up = glm::vec3(0.0f, 0.0f, -1.0f);
+		}
 	}
 
 	//Change Direction Stuff
