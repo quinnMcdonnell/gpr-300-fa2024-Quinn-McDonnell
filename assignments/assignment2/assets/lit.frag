@@ -6,15 +6,14 @@ in Surface{
 	vec3 WorldPos;
 	vec3 WorldNormal;
 	vec2 TexCoord;
+    vec4 LightSpacePos;
 }fs_in;
 
-in vec4 LightSpacePos;
 uniform sampler2D _ShadowMap;
 uniform sampler2D _MainTex;
-uniform vec3 _EyePos;
-uniform vec3 _LightDirection;
-uniform vec3 _LightColor = vec3(1.0);
-uniform vec3 _AmbientColor = vec3(0.3,0.4,0.46);
+
+uniform vec3 lightPos;
+uniform vec3 viewPos;
 
 
 struct Material
@@ -25,43 +24,45 @@ struct Material
 	float Shininess;
 };
 
-uniform Material _Material;
+//uniform Material _Material;
 
-float calcShadow(sampler2D shadowMap, vec4 lightSpacePos){
-	
-	//Homogeneous Clip space to NDC [-w,w] to [-1,1]
-    vec3 sampleCoord = lightSpacePos.xyz / lightSpacePos.w;
-    
-	//Convert from [-1,1] to [0,1]
-    sampleCoord = sampleCoord * 0.5 + 0.5;
-	
-	float myDepth = sampleCoord.z; 
-	
-	float shadowMapDepth = texture(shadowMap, sampleCoord.xy).r;
-	
-	//step(a,b) returns 1.0 if a >= b, 0.0 otherwise
-	return step(shadowMapDepth,myDepth);
+float ShadowCalculation(vec4 fragPosLightSpace)
+{
+    // perform perspective divide
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    // transform to [0,1] range
+    projCoords = projCoords * 0.5 + 0.5;
+    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+    float closestDepth = texture(_ShadowMap, projCoords.xy).r; 
+    // get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+    // check whether current frag pos is in shadow
+    float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+
+    return shadow;
 }
 
 
 void main()
 {
-	vec3 normal = normalize(fs_in.WorldNormal);
-	vec3 toLight = -normalize(_LightDirection);
+	vec3 color = texture(_MainTex, fs_in.TexCoord).rgb;
+    vec3 normal = normalize(fs_in.WorldNormal);
+    vec3 lightColor = vec3(1.0);
 
-	float shadow = calcShadow(_ShadowMap, LightSpacePos);
-	
-	float diffuseFactor = max(dot(normal,toLight),0.0);
+    vec3 ambient = vec3(0.3, 0.4, 0.6) * lightColor;
+    
+    vec3 lightDir = normalize(lightPos - fs_in.WorldPos);
+    float diff = max(dot(lightDir, normal), 0.0);
+    vec3 diffuse = diff * lightColor;
+    
+    vec3 viewDir = normalize(viewPos - fs_in.WorldPos);
+    float spec = 0.0;
+    vec3 halfwayDir = normalize(lightDir + viewDir);  
+    spec = pow(max(dot(normal, halfwayDir), 0.0), 64.0);
+    vec3 specular = spec * lightColor;    
 
-	vec3 toEye = normalize(_EyePos - fs_in.WorldPos);
-	vec3 h = normalize(toLight + toEye);
-
-	float SpecularFactor = pow(max(dot(normal,h),0.0),_Material.Shininess);
-	
-	vec3 lightColor = (_Material.Kd * diffuseFactor + _Material.Ks * SpecularFactor) * _LightColor;
-	lightColor += _AmbientColor * _Material.Ka * (1.0 - shadow);
-
-	vec3 objectColor = texture(_MainTex, fs_in.TexCoord).rgb;
-
-	FragColor = vec4(objectColor * lightColor, 1.0);
+    float shadow = ShadowCalculation(fs_in.LightSpacePos);       
+    vec3 lighting = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;    
+    
+    FragColor = vec4(lighting, 1.0);
 }

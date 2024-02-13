@@ -274,9 +274,12 @@ int main() {
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
-		shader.setVec3("_LightDirection", -pos);
+
 		shader.setInt("_MainTex", 0);
 		shader.setInt("_ShadowMap", 1);
+
+		shader.setVec3("lightPos", pos);
+		shader.setVec3("viewPos", target);
 
 		glCheckError();
 
