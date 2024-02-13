@@ -258,13 +258,13 @@ int main() {
 		glCullFace(GL_BACK); //Back face culling
 		glViewport(0, 0, screenWidth, screenHeight);
 
-		//glActiveTexture(GL_TEXTURE0);
-		//glBindTexture(GL_TEXTURE_2D, brickTexture);
-		////glBindTextureUnit(0, brickTexture);
-		//
-		//glActiveTexture(GL_TEXTURE1);
-		//glBindTexture(GL_TEXTURE_2D, shadow.map);
-		//glBindTextureUnit(1, shadow.map);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, brickTexture);
+		glBindTextureUnit(0, brickTexture);
+		
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, shadow.map);
+		glBindTextureUnit(1, shadow.map);
 
 		shader.use();
 
@@ -276,7 +276,7 @@ int main() {
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
-		shader.setVec3("_LightDirection", pos);
+		shader.setVec3("_LightDirection", -pos);
 		shader.setInt("_MainTex", 0);
 		shader.setInt("_ShadowMap", 1);
 

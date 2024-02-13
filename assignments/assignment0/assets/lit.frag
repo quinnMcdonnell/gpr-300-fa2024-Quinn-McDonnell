@@ -47,7 +47,7 @@ void main()
 {
 	
 	vec3 normal = normalize(fs_in.WorldNormal);
-	vec3 toLight = normalize(LightSpacePos.xyz);
+	vec3 toLight = -normalize(LightSpacePos.xyz);
 	
 	float diffuseFactor = max(dot(normal,toLight),0.0);
 
