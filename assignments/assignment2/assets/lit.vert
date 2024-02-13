@@ -6,6 +6,9 @@ layout(location = 2) in vec2 vtexCoord;
 
 uniform mat4 _Model;
 uniform mat4 _ViewProjection;
+uniform mat4 _LightViewProj; //view + projection of light source camera
+out vec4 LightSpacePos; //Sent to fragment shader
+
 
 out Surface{
 	vec3 WorldPos;
@@ -15,6 +18,7 @@ out Surface{
 
 void main()
 {
+	LightSpacePos = _LightViewProj * _Model * vec4(vPos,1);
 	vs_out.WorldPos = vec3(_Model * vec4(vPos,1.0));
 	vs_out.WorldNormal = transpose(inverse(mat3(_Model))) * vNormal;
 	vs_out.TexCoord = vtexCoord;
