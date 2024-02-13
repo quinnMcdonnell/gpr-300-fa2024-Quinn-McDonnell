@@ -235,11 +235,16 @@ int main() {
 
 		// bind
 		shadow_shader.use();
-		shadow_shader.setMat4("_Model", monkeyTransform.modelMatrix());
+
 		shadow_shader.setMat4("_ViewProjection", lightSpaceMatrix);
-		monkeyModel.draw();
+
 		shadow_shader.setMat4("_Model", planeTransform.modelMatrix());
 		planeMesh.draw();
+
+		shadow_shader.setMat4("_Model", monkeyTransform.modelMatrix());
+		
+		monkeyModel.draw();
+		
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); //HOW TO UNBIND
 		// <<< RENDER FROM LIGHTS POV
@@ -265,28 +270,35 @@ int main() {
 		glBindTextureUnit(1, shadow.map);
 
 		shader.use();
+		
+		shader.setMat4("_Model", planeTransform.modelMatrix());
+		planeMesh.draw();
 
-		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setMat4("_LightViewProj", lightView * lightProjection);
 		
+		
+
 		shader.setFloat("_Material.Ka", material.Ka);
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
 
+		
+
+		shader.setVec3("lightPos", pos);
+		shader.setVec3("viewPos", camera.position);		
+		
+		
+
 		shader.setInt("_MainTex", 0);
 		shader.setInt("_ShadowMap", 1);
 
-		shader.setVec3("lightPos", pos);
-		shader.setVec3("viewPos", target);
 
-		glCheckError();
-
+		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();
 
-		shader.setMat4("_Model", planeTransform.modelMatrix());
-		planeMesh.draw();
+		
 		
 		// <<< RENDER THE SCENE NORMALLY
 
