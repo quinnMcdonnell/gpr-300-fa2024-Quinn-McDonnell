@@ -155,8 +155,6 @@ unsigned int screenVAO;
 bool edge = false, inverted = false, box = false, grayscale = false;
 float blurring = 9.0;
 
-char* effects[] = { "Normal", "Inverted", };
-
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 
