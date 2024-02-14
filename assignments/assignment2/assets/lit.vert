@@ -7,6 +7,7 @@ layout(location = 2) in vec2 vtexCoord;
 uniform mat4 _Model;
 uniform mat4 _ViewProjection;
 uniform mat4 _LightViewProj; //view + projection of light source camera
+
 out vec4 LightSpacePos; //Sent to fragment shader
 
 

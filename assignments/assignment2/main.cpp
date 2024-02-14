@@ -262,13 +262,13 @@ int main() {
 		glCullFace(GL_BACK); //Back face culling
 		glViewport(0, 0, screenWidth, screenHeight);
 
-		glActiveTexture(GL_TEXTURE0);
+		/*glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, brickTexture);
 		glBindTextureUnit(0, brickTexture);
 		
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, shadow.map);
-		glBindTextureUnit(1, shadow.map);
+		glBindTextureUnit(1, shadow.map);*/
 
 		shader.use();
 		
