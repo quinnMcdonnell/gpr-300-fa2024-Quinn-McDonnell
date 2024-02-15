@@ -24,6 +24,8 @@ include(external/assimp.cmake)
 include(external/glm.cmake)
 
 add_subdirectory(core)
+add_subdirectory(assignments/assignmentws)
+add_subdirectory(assignments/assignmentws1)
 add_subdirectory(assignments/assignment0)
 add_subdirectory(assignments/assignment1)
 add_subdirectory(assignments/assignment2)
