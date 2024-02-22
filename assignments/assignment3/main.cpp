@@ -75,11 +75,12 @@ GLenum glCheckError_(const char* file, int line)
 static void create_deferred_pass(void)
 {
 	glGenFramebuffers(1, &deferred.fbo);
-	glBindFramebuffer(GL_BUFFER, deferred.fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, deferred.fbo);
 
 	//World Position
 	glGenTextures(1, &deferred.world_position);
 	glBindTexture(GL_TEXTURE_2D, deferred.world_position);
+
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, screenWidth, screenHeight, 0, GL_RGB, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -105,12 +106,14 @@ static void create_deferred_pass(void)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-
 	//framebuffer
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, deferred.world_position, 0);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, deferred.world_normal, 0);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, deferred.albedo, 0);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, deferred.depth, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, deferred.depth, 0);
+
+	GLenum buffers[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+	glDrawBuffers(3, buffers);
 
 	glCheckError();
 
@@ -119,8 +122,7 @@ static void create_deferred_pass(void)
 		printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete \n");
 	}
 
-	GLenum buffers[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -129,11 +131,15 @@ int main() {
 
 	//Shader and Models
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader gpShader = ew::Shader("assets/geometryPass.vert", "assets/geometryPass.frag");
+
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
 	//Model Tranform
 	ew::Transform monkeyTransform;
+
+	create_deferred_pass();
 
 	//Camera and its Controller
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
@@ -154,38 +160,31 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
-		//RENDER
-		glClearColor(0.6f,0.8f,0.92f,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		cameraController.move(window, &camera, deltaTime);
+
+		//RENDER
+		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, deferred.fbo);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, brickTexture);
 		glBindTextureUnit(0, brickTexture);
 
-		shader.use();
-		shader.setInt("_MainTex", 0);
-		shader.setVec3("_EyePos", camera.position);
-
-		shader.setMat4("_Model", glm::mat4(1.0f));
-		shader.setMat4("_ViewProjection",camera.projectionMatrix() * camera.viewMatrix());
-
-		shader.setFloat("_Material.Ka", material.Ka);
-		shader.setFloat("_Material.Kd", material.Kd);
-		shader.setFloat("_Material.Ks", material.Ks);
-		shader.setFloat("_Material.Shininess", material.Shininess);
-
-		//Reset the model after a change in rotation
-		if (reset)
-		{
-			monkeyTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-			reset = false;
-		}
+		//RENDER
+		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime * speed, rotation);
-		shader.setMat4("_Model", monkeyTransform.modelMatrix());
+		gpShader.use();
+		gpShader.setInt("_MainTex", 0);
+		gpShader.setMat4("_Model", monkeyTransform.modelMatrix());
+		gpShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		
 		monkeyModel.draw();
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		drawUI();
 
@@ -234,11 +233,53 @@ void drawUI() {
 			material.Shininess = 128;
 		}
 	}
-	
-	//GBUFFER
-
-	
 	ImGui::End();
+
+	//GBUFFER
+	ImGui::Begin("World Position");
+	//Using a Child allow to fill all the space of the window.
+	ImGui::BeginChild("World Position");
+	//Stretch image to be window size
+	ImVec2 windowSize = ImGui::GetWindowSize();
+	//Invert 0-1 V to flip vertically for ImGui display
+	//shadowMap is the texture2D handle
+	ImGui::Image((ImTextureID)deferred.world_position, windowSize, ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::EndChild();
+	ImGui::End();
+	
+	ImGui::Begin("World Normal");
+	//Using a Child allow to fill all the space of the window.
+	ImGui::BeginChild("World Normal");
+	//Stretch image to be window size
+	ImVec2 windowSize1 = ImGui::GetWindowSize();
+	//Invert 0-1 V to flip vertically for ImGui display
+	//shadowMap is the texture2D handle
+	ImGui::Image((ImTextureID)deferred.world_normal, windowSize1, ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::EndChild();
+	ImGui::End();
+
+	ImGui::Begin("Albedo");
+	//Using a Child allow to fill all the space of the window.
+	ImGui::BeginChild("Albedo");
+	//Stretch image to be window size
+	ImVec2 windowSize2 = ImGui::GetWindowSize();
+	//Invert 0-1 V to flip vertically for ImGui display
+	//shadowMap is the texture2D handle
+	ImGui::Image((ImTextureID)deferred.albedo, windowSize2, ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::EndChild();
+	ImGui::End();
+
+	ImGui::Begin("Depth");
+	//Using a Child allow to fill all the space of the window.
+	ImGui::BeginChild("Depth");
+	//Stretch image to be window size
+	ImVec2 windowSize3 = ImGui::GetWindowSize();
+	//Invert 0-1 V to flip vertically for ImGui display
+	//shadowMap is the texture2D handle
+	ImGui::Image((ImTextureID)deferred.depth, windowSize3, ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::EndChild();
+	ImGui::End();
+	
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
