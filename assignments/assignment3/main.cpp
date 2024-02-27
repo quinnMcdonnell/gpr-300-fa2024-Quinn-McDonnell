@@ -10,6 +10,7 @@
 #include <ew/transform.h>
 #include <ew/cameraController.h>
 #include <ew/texture.h>
+#include <ew/procGen.h>
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -136,8 +137,21 @@ int main() {
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
+	ew::Mesh planeMesh = ew::Mesh(ew::createPlane(16, 25, 100));
+
 	//Model Tranform
-	ew::Transform monkeyTransform;
+	ew::Transform monkeyTransform[4][5];
+	ew::Transform planeTransform;
+
+	planeTransform.position = glm::vec3(6.0f, -1.5f, 10.0f);
+
+	for (int row = 0; row < 4; row++)
+	{
+		for (int col = 0; col < 5; col++)
+		{
+			monkeyTransform[row][col].position = glm::vec3(row * 4, 0, col * 5);
+		}
+	}
 
 	create_deferred_pass();
 
@@ -179,10 +193,21 @@ int main() {
 		
 		gpShader.use();
 		gpShader.setInt("_MainTex", 0);
-		gpShader.setMat4("_Model", monkeyTransform.modelMatrix());
 		gpShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+
+
+		for (int row = 0; row < 4; row++)
+		{
+			for (int col = 0; col < 5; col++)
+			{
+				gpShader.setMat4("_Model", monkeyTransform[row][col].modelMatrix());
+				monkeyModel.draw();
+			}
+		}
 		
-		monkeyModel.draw();
+		
+		gpShader.setMat4("_Model", planeTransform.modelMatrix());
+		planeMesh.draw();
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
