@@ -51,6 +51,22 @@ struct {
 	GLuint depth;
 } deferred;
 
+struct {
+	GLuint vao;
+	GLuint vbo;
+
+}display;
+
+struct PointLight {
+	glm::vec3 position;
+	float radius;
+	glm::vec3 color;
+};
+
+const int MAX_LIGHT_POINTS = 64;
+PointLight pointLights[MAX_LIGHT_POINTS];
+
+
 GLenum glCheckError_(const char* file, int line)
 {
 	GLenum errorCode;
@@ -127,12 +143,45 @@ static void create_deferred_pass(void)
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void create_display_pass()
+{
+	float quad[] = {
+
+		//Vertices				UV Coords
+
+		//Triangle 1
+		-1.0f, +1.0f, 0.0f,		0.0f, 1.0f,
+		-1.0f, -1.0f, 0.0f,		0.0f, 0.0f,
+		+1.0f, +1.0f, 0.0f,		1.0f, 1.0f,
+
+		//triangle 2
+		+1.0f, -1.0f, 0.0f,		1.0f, 0.0f,
+		+1.0f, +1.0f, 0.0f,		1.0f, 1.0f,
+		-1.0f, -1.0f, 0.0f,		0.0f, 0.0f,
+	};
+
+	glGenVertexArrays(1, &display.vao);
+	glGenBuffers(1, &display.vbo);
+
+	glBindVertexArray(display.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, display.vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad), &quad, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+	glBindVertexArray(0);
+}
+
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 
 	//Shader and Models
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
 	ew::Shader gpShader = ew::Shader("assets/geometryPass.vert", "assets/geometryPass.frag");
+	ew::Shader lightingPassShader = ew::Shader("assets/deferredLit.vert", "assets/deferredLit.frag");
 
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
@@ -154,12 +203,38 @@ int main() {
 	}
 
 	create_deferred_pass();
+	create_display_pass();
 
 	//Camera and its Controller
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
 	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);
 	camera.aspectRatio = (float)screenWidth / screenHeight;
 	camera.fov = 60.0f;
+
+	//point lights
+	srand((unsigned)time(NULL));
+
+	//for (int i = 0; i < MAX_LIGHT_POINTS; i++)
+	//{
+	//	int x = -10 + (rand() % 20);
+	//	int y = (rand() % 20);
+	//	int z = -10 + (rand() % 20);
+	//	pointLights[i].position = glm::vec3(x, y, z);
+	//	pointLights[i].radius = 1 + (rand() % 100);
+	//	pointLights[i].color = glm::vec3(rand() % 1, rand() % 1, rand() % 1);
+
+		for (int row = 0; row < 4; row++)
+		{
+			for (int col = 0; col < 5; col++)
+			{
+				auto i = (row * 5 + col);
+				pointLights[i].position = glm::vec3(row * 4, 2, col * 5);
+				pointLights[i].radius = 3;
+				pointLights[i].color = glm::vec3(0.5, 1.0, 0.0);
+			}
+		}
+	//}
+
 
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 	glEnable(GL_CULL_FACE);
@@ -187,14 +262,13 @@ int main() {
 		glBindTexture(GL_TEXTURE_2D, brickTexture);
 		glBindTextureUnit(0, brickTexture);
 
-		//RENDER
-		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+		//geometry pass >>>
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
 		gpShader.use();
 		gpShader.setInt("_MainTex", 0);
 		gpShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
-
 
 		for (int row = 0; row < 4; row++)
 		{
@@ -205,11 +279,42 @@ int main() {
 			}
 		}
 		
-		
 		gpShader.setMat4("_Model", planeTransform.modelMatrix());
 		planeMesh.draw();
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//geometry pass <<<
+
+		//lighting pass >>>
+		lightingPassShader.use();
+		glBindVertexArray(display.vao);
+		glDisable(GL_DEPTH_TEST);
+		glBindTextureUnit(0, deferred.world_position);
+		glBindTextureUnit(1, deferred.world_normal);
+		glBindTextureUnit(2, deferred.albedo);
+		glBindTextureUnit(3, deferred.depth);
+
+		lightingPassShader.setFloat("_Material.Ka", material.Ka);
+		lightingPassShader.setFloat("_Material.Kd", material.Kd);
+		lightingPassShader.setFloat("_Material.Ks", material.Ks);
+		lightingPassShader.setFloat("_Material.Shininess", material.Shininess);
+		lightingPassShader.setVec3("_EyePos", camera.position);
+
+		for (int i = 0; i < 20; i++)
+		{
+			std::string prefix = "_PointLights[" + std::to_string(i) + "].";
+			lightingPassShader.setVec3(prefix + "position", pointLights[i].position);
+			lightingPassShader.setFloat(prefix + "radius", pointLights[i].radius);
+			lightingPassShader.setVec3(prefix + "color", pointLights[i].color);
+		}
+
+		lightingPassShader.setInt("gPosition", 0);
+		lightingPassShader.setInt("gNormal", 1);
+		lightingPassShader.setInt("gAlbedo", 2);
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glEnable(GL_DEPTH_TEST);
+		//light pass <<<
 
 		drawUI();
 
