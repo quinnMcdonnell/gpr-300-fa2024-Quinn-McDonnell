@@ -182,23 +182,25 @@ int main() {
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
 	ew::Shader gpShader = ew::Shader("assets/geometryPass.vert", "assets/geometryPass.frag");
 	ew::Shader lightingPassShader = ew::Shader("assets/deferredLit.vert", "assets/deferredLit.frag");
+	ew::Shader lightOrbShader = ew::Shader("assets/orb.vert", "assets/orb.frag");
 
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
-	ew::Mesh planeMesh = ew::Mesh(ew::createPlane(16, 25, 100));
+	ew::Mesh planeMesh = ew::Mesh(ew::createPlane(100, 100, 100));
+	ew::Mesh sphereMesh = ew::Mesh(ew::createSphere(1.0f, 8));
 
 	//Model Tranform
-	ew::Transform monkeyTransform[4][5];
+	ew::Transform monkeyTransform[8][8];
 	ew::Transform planeTransform;
 
 	planeTransform.position = glm::vec3(6.0f, -1.5f, 10.0f);
 
-	for (int row = 0; row < 4; row++)
+	for (int row = 0; row < 8; row++)
 	{
-		for (int col = 0; col < 5; col++)
+		for (int col = 0; col < 8; col++)
 		{
-			monkeyTransform[row][col].position = glm::vec3(row * 4, 0, col * 5);
+			monkeyTransform[row][col].position = glm::vec3(row * 8, 0, col * 8);
 		}
 	}
 
@@ -223,14 +225,16 @@ int main() {
 	//	pointLights[i].radius = 1 + (rand() % 100);
 	//	pointLights[i].color = glm::vec3(rand() % 1, rand() % 1, rand() % 1);
 
-		for (int row = 0; row < 4; row++)
+	srand(time(0));
+
+		for (int row = 0; row < 8; row++)
 		{
-			for (int col = 0; col < 5; col++)
+			for (int col = 0; col < 8; col++)
 			{
-				auto i = (row * 5 + col);
-				pointLights[i].position = glm::vec3(row * 4, 2, col * 5);
-				pointLights[i].radius = 3;
-				pointLights[i].color = glm::vec3(0.5, 1.0, 0.0);
+				auto i = (row * 8 + col);
+				pointLights[i].position = glm::vec3(row * 8 + 0.5f, 2, col * 8 + 0.5f);
+				pointLights[i].radius = rand() % 10;
+				pointLights[i].color = glm::vec3(1.0, 0.0, 1.0);
 			}
 		}
 	//}
@@ -270,9 +274,9 @@ int main() {
 		gpShader.setInt("_MainTex", 0);
 		gpShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 
-		for (int row = 0; row < 4; row++)
+		for (int row = 0; row < 8; row++)
 		{
-			for (int col = 0; col < 5; col++)
+			for (int col = 0; col < 8; col++)
 			{
 				gpShader.setMat4("_Model", monkeyTransform[row][col].modelMatrix());
 				monkeyModel.draw();
@@ -300,7 +304,7 @@ int main() {
 		lightingPassShader.setFloat("_Material.Shininess", material.Shininess);
 		lightingPassShader.setVec3("_EyePos", camera.position);
 
-		for (int i = 0; i < 20; i++)
+		for (int i = 0; i < MAX_LIGHT_POINTS; i++)
 		{
 			std::string prefix = "_PointLights[" + std::to_string(i) + "].";
 			lightingPassShader.setVec3(prefix + "position", pointLights[i].position);
@@ -315,6 +319,30 @@ int main() {
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glEnable(GL_DEPTH_TEST);
 		//light pass <<<
+
+
+		//drawing orbs to screen >>>
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, deferred.fbo); //Read from gBuffer 
+		//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, deferred.fbo); //Write to current fbo
+		glBlitFramebuffer(
+			0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST
+		);
+
+		//Draw all light orbs
+		lightOrbShader.use();
+		lightOrbShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		for (int i = 0; i < MAX_LIGHT_POINTS; i++)
+		{
+			glm::mat4 m = glm::mat4(1.0f);
+			m = glm::translate(m, pointLights[i].position);
+			m = glm::scale(m, glm::vec3(0.2f)); //Whatever radius you want
+
+			lightOrbShader.setMat4("_Model", m);
+			lightOrbShader.setVec3("_Color", pointLights[i].color);
+			sphereMesh.draw();
+		}
+
+		//drawing orbs to screen <<<
 
 		drawUI();
 
