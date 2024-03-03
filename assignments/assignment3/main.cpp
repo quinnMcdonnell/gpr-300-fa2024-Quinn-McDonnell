@@ -232,8 +232,8 @@ int main() {
 			for (int col = 0; col < 8; col++)
 			{
 				auto i = (row * 8 + col);
-				pointLights[i].position = glm::vec3(row * 8 + 0.5f, 2, col * 8 + 0.5f);
-				pointLights[i].radius = rand() % 10;
+				pointLights[i].position = glm::vec3(rand() % 50, 2, rand() % 50);
+				pointLights[i].radius = rand() % 10 + 2;
 				pointLights[i].color = glm::vec3(1.0, 0.0, 1.0);
 			}
 		}
