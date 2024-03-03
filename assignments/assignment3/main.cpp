@@ -232,9 +232,14 @@ int main() {
 			for (int col = 0; col < 8; col++)
 			{
 				auto i = (row * 8 + col);
+
+				float r = (float)(rand() % 100) / 100;
+				float g = (float)(rand() % 100) / 100;
+				float b = (float)(rand() % 100) / 100;
+
 				pointLights[i].position = glm::vec3(rand() % 50, 2, rand() % 50);
 				pointLights[i].radius = rand() % 10 + 2;
-				pointLights[i].color = glm::vec3(1.0, 0.0, 1.0);
+				pointLights[i].color = glm::vec3(r,g,b);
 			}
 		}
 	//}
