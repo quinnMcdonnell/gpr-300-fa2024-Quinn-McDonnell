@@ -237,7 +237,7 @@ int main() {
 				float g = (float)(rand() % 100) / 100;
 				float b = (float)(rand() % 100) / 100;
 
-				pointLights[i].position = glm::vec3(rand() % 50, 2, rand() % 50);
+				pointLights[i].position = glm::vec3(rand() % 50, rand() % 3, rand() % 50);
 				pointLights[i].radius = rand() % 10 + 2;
 				pointLights[i].color = glm::vec3(r,g,b);
 			}
