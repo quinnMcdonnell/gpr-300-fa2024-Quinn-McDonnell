@@ -63,6 +63,13 @@ struct PointLight {
 	glm::vec3 color;
 };
 
+struct
+{
+	GLuint fbo;
+	GLuint map;
+
+} shadow;
+
 const int MAX_LIGHT_POINTS = 64;
 PointLight pointLights[MAX_LIGHT_POINTS];
 
@@ -175,6 +182,37 @@ void create_display_pass()
 	glBindVertexArray(0);
 }
 
+static void create_shadow_pass(void)
+{
+	glGenFramebuffers(1, &shadow.fbo);
+
+	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+
+	glGenTextures(1, &shadow.map);
+	glBindTexture(GL_TEXTURE_2D, shadow.map);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	//framebuffer
+	glBindFramebuffer(GL_FRAMEBUFFER, shadow.fbo);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadow.map, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	glCheckError();
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete \n");
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 
@@ -183,6 +221,7 @@ int main() {
 	ew::Shader gpShader = ew::Shader("assets/geometryPass.vert", "assets/geometryPass.frag");
 	ew::Shader lightingPassShader = ew::Shader("assets/deferredLit.vert", "assets/deferredLit.frag");
 	ew::Shader lightOrbShader = ew::Shader("assets/orb.vert", "assets/orb.frag");
+	ew::Shader shadowShader = ew::Shader("assets/shadow.vert", "assets/shadow.frag");
 
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
@@ -206,6 +245,7 @@ int main() {
 
 	create_deferred_pass();
 	create_display_pass();
+	create_shadow_pass();
 
 	//Camera and its Controller
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
@@ -258,8 +298,53 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
+		glm::vec3 pos = glm::vec3(0.0f, 75.0f, 0.0f);
+		glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
+		glm::vec3 up = glm::vec3(0.0f, 0.0f, -1.0f);
+
+		float near_plane = 0.0f, far_plane = 100.0f;
+		glm::mat4 lightProjection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, near_plane, far_plane);
+		glm::mat4 lightView = glm::lookAt(
+			pos,
+			target,
+			up
+		);
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
 		cameraController.move(window, &camera, deltaTime);
+
+		// >>> RENDER FROM LIGHTS POV
+		glBindFramebuffer(GL_FRAMEBUFFER, shadow.fbo);
+
+		// pass
+		glViewport(0, 0, 1024, 1024);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		// pipeline
+		glEnable(GL_CULL_FACE);
+		glEnable(GL_DEPTH_TEST); //Depth testing
+		glCullFace(GL_BACK); //Back face culling
+
+
+
+		// bind
+		shadowShader.use();
+
+		shadowShader.setMat4("_ViewProjection", lightSpaceMatrix);
+
+		for (int row = 0; row < 8; row++)
+		{
+			for (int col = 0; col < 8; col++)
+			{
+				shadowShader.setMat4("_Model", monkeyTransform[row][col].modelMatrix());
+				monkeyModel.draw();
+			}
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0); //HOW TO UNBIND
+		// <<< RENDER FROM LIGHTS POV
+
+		glViewport(0, 0, screenWidth, screenHeight);
 
 		//RENDER
 		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
@@ -267,17 +352,21 @@ int main() {
 
 		glBindFramebuffer(GL_FRAMEBUFFER, deferred.fbo);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, brickTexture);
+		/*glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, brickTexture);*/
 		glBindTextureUnit(0, brickTexture);
 
 		//geometry pass >>>
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 		
+
 		gpShader.use();
 		gpShader.setInt("_MainTex", 0);
 		gpShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		gpShader.setMat4("_LightViewProj", lightView * lightProjection);
+		gpShader.setInt("_ShadowMap", 1);
 
 		for (int row = 0; row < 8; row++)
 		{
@@ -302,6 +391,7 @@ int main() {
 		glBindTextureUnit(1, deferred.world_normal);
 		glBindTextureUnit(2, deferred.albedo);
 		glBindTextureUnit(3, deferred.depth);
+		glBindTextureUnit(4, shadow.map);
 
 		lightingPassShader.setFloat("_Material.Ka", material.Ka);
 		lightingPassShader.setFloat("_Material.Kd", material.Kd);
@@ -320,6 +410,9 @@ int main() {
 		lightingPassShader.setInt("gPosition", 0);
 		lightingPassShader.setInt("gNormal", 1);
 		lightingPassShader.setInt("gAlbedo", 2);
+
+		lightingPassShader.setMat4("_LightViewProj", lightView * lightProjection);
+		lightingPassShader.setInt("_ShadowMap", 4);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glEnable(GL_DEPTH_TEST);
@@ -440,6 +533,17 @@ void drawUI() {
 	//Invert 0-1 V to flip vertically for ImGui display
 	//shadowMap is the texture2D handle
 	ImGui::Image((ImTextureID)deferred.depth, windowSize3, ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::EndChild();
+	ImGui::End();
+
+	ImGui::Begin("ShadowMap");
+	//Using a Child allow to fill all the space of the window.
+	ImGui::BeginChild("ShadowMap");
+	//Stretch image to be window size
+	ImVec2 windowSize4 = ImGui::GetWindowSize();
+	//Invert 0-1 V to flip vertically for ImGui display
+	//shadowMap is the texture2D handle
+	ImGui::Image((ImTextureID)shadow.map, windowSize4, ImVec2(0, 1), ImVec2(1, 0));
 	ImGui::EndChild();
 	ImGui::End();
 	

@@ -16,4 +16,6 @@ void main(){
 	gWorldPos = fs_in.WorldPos;
 	gWorldNormal = normalize(fs_in.WorldNormal);
 	gAlbedo = texture(_MainTex,fs_in.TexCoord).rgb;
+
+	gAlbedo = texture(_MainTex,fs_in.TexCoord).rgb;
 }
