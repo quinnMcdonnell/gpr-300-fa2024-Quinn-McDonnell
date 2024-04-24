@@ -238,9 +238,6 @@ int main() {
 
 		shadow_shader.setMat4("_ViewProjection", lightSpaceMatrix);
 
-		shadow_shader.setMat4("_Model", planeTransform.modelMatrix());
-		planeMesh.draw();
-
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime * speed, rotation);
 		shadow_shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		
